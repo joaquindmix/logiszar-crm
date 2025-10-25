@@ -1,0 +1,115 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String    @id @default(cuid())
+  nombre    String
+  email     String    @unique
+  password  String
+  rol       String    @default("operador") // admin | operador
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  contacts  Contact[] @relation("ResponsableContacts")
+  activities Activity[]
+}
+
+model Contact {
+  id            String    @id @default(cuid())
+  nombre        String
+  empresa       String?
+  email         String?
+  telefono      String?
+  origen        String    @default("Manual") // Campaña X, Formulario, Manual
+  estado        String    @default("Nuevo") // Nuevo, Contactado, En seguimiento, Compró, Perdido
+  responsableId String?
+  
+  // Campos comerciales opcionales
+  interes       String?   // descripción del interés
+  moneda        String?   // ARS | USD
+  montoEstimado Float?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  responsable   User?     @relation("ResponsableContacts", fields: [responsableId], references: [id])
+  activities    Activity[]
+  deals         Deal[]
+  emailEvents   EmailEvent[]
+  
+  @@index([email])
+  @@index([telefono])
+  @@index([estado])
+}
+
+model Activity {
+  id            String    @id @default(cuid())
+  contactId     String
+  userId        String?
+  tipo          String    // llamada | whatsapp | email | nota | lead_entrante
+  contenido     String
+  resultado     String?
+  nextActionAt  DateTime?
+  createdAt     DateTime  @default(now())
+  
+  contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  user          User?     @relation(fields: [userId], references: [id])
+  
+  @@index([contactId])
+  @@index([nextActionAt])
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  nombre    String
+  unidad    String   // litro | kilo
+  dilucion  Float?   // 0.01 = 1%, 0.02 = 2%, etc.
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  
+  deals     Deal[]
+}
+
+model Deal {
+  id              String    @id @default(cuid())
+  contactId       String
+  productId       String?
+  cantidad        Float
+  unidad          String    // litro | kilo
+  moneda          String    @default("ARS") // ARS | USD
+  precioUnitario  Float?
+  total           Float?
+  estado          String    @default("cotizado") // cotizado | cerrado | perdido
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  contact         Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  product         Product?  @relation(fields: [productId], references: [id])
+  
+  @@index([contactId])
+  @@index([estado])
+}
+
+// Reservado para v2 - integración de email
+model EmailEvent {
+  id        String   @id @default(cuid())
+  contactId String
+  direction String   // in | out
+  subject   String?
+  snippet   String?
+  messageId String?
+  at        DateTime @default(now())
+  
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  @@index([contactId])
+}
